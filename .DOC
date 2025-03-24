@@ -198,6 +198,94 @@ router.get('/login',(req,res) =>{
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
      
 router.get('/register', (req, res) => {
     res.render('register');
@@ -248,3 +336,229 @@ router.post('/register', [
         });
     }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const express = require('express');
+const router = express.Router();
+const FileModel = require('../models/files.models');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Create uploads directory if it doesn't exist
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configure multer for file storage
+const storage = multer.diskStorage({
+    destination: function(req, file, cb) {
+        // Create user directory based on userId
+        const userId = req.user?._id || 'anonymous';
+        const userDir = path.join(uploadDir, userId.toString());
+        
+        if (!fs.existsSync(userDir)) {
+            fs.mkdirSync(userDir, { recursive: true });
+        }
+        
+        cb(null, userDir);
+    },
+    filename: function(req, file, cb) {
+        // Generate unique filename: timestamp + original name
+        const uniqueName = Date.now() + '-' + file.originalname;
+        cb(null, uniqueName);
+    }
+});
+
+// Set file size limits and file types
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB limit
+    },
+    fileFilter: function(req, file, cb) {
+        // Accept all file types or limit as needed
+        cb(null, true);
+        
+        // To limit file types, use:
+        // const filetypes = /jpeg|jpg|png|gif|pdf|doc|docx/;
+        // const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        // const mimetype = filetypes.test(file.mimetype);
+        // if (mimetype && extname) {
+        //     return cb(null, true);
+        // } else {
+        //     cb('Error: Only specific file types are allowed!');
+        // }
+    }
+});
+
+// Route to upload a file
+router.post('/upload-file', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false,
+                message: 'No file uploaded'
+            });
+        }
+        
+        // Create a file record in your database
+        const newFile = await FileModel.create({
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            path: req.file.path,
+            size: req.file.size,
+            mimetype: req.file.mimetype,
+            userId: req.user._id,
+            uploadDate: new Date()
+        });
+        res.json(newFile);
+        // If you have a File model, save to database
+        // const newFile = await FileModel.create(fileData);
+        
+        res.status(201).json({
+            message: 'File uploaded successfully',
+            file: fileData
+        });
+    } catch (error) {
+        console.error('File upload error:', error);
+        res.status(500).json({
+            message: 'Error uploading file',
+            error: error.message
+        });
+    }
+});
+
+// Route to get all files for logged in user
+router.get('/files', async (req, res) => {
+    try {
+        const userId = req.user?._id || 'anonymous';
+        const userDir = path.join(uploadDir, userId.toString());
+        
+        if (!fs.existsSync(userDir)) {
+            return res.json({
+               
+                files: []
+            });
+        }
+        
+        // Read the user's directory
+        const files = fs.readdirSync(userDir);
+        
+        // Map files to objects with metadata
+        const fileList = files.map(filename => {
+            const filePath = path.join(userDir, filename);
+            const stats = fs.statSync(filePath);
+            
+            return {
+                filename: filename,
+                originalName: filename.substring(filename.indexOf('-') + 1),
+                path: filePath,
+                size: stats.size,
+                uploadDate: stats.mtime
+            };
+        });
+        
+        res.json({
+            
+            files: fileList
+        });
+    } catch (error) {
+        console.error('Error getting files:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving files',
+            error: error.message
+        });
+    }
+});
+
+// Route to download a file
+router.get('/files/:filename', (req, res) => {
+    try {
+        const userId = req.user?._id || 'anonymous';
+        const filename = req.params.filename;
+        const filePath = path.join(uploadDir, userId.toString(), filename);
+        
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                success: false,
+                message: 'File not found'
+            });
+        }
+        
+        // Send the file
+        res.download(filePath);
+    } catch (error) {
+        console.error('Error downloading file:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error downloading file',
+            error: error.message
+        });
+    }
+});
+
+// Route to delete a file
+router.delete('/files/:filename', (req, res) => {
+    try {
+        const userId = req.user?._id || 'anonymous';
+        const filename = req.params.filename;
+        const filePath = path.join(uploadDir, userId.toString(), filename);
+        
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                success: false,
+                message: 'File not found'
+            });
+        }
+        
+        // Delete the file
+        fs.unlinkSync(filePath);
+        
+        // If you have a File model, remove from database
+        // await FileModel.deleteOne({ filename: filename, userId: userId });
+        
+        res.json({
+            success: true,
+            message: 'File deleted successfully'
+        });
+    } catch (error) {
+        console.error('Error deleting file:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting file',
+            error: error.message
+        });
+    }
+});
+
+module.exports = router;

@@ -85,12 +85,15 @@ router.get('/login',(req,res) =>{
             message: "Invalid username or password"
         })
         }
-        const token = jwt.sign({
-            userId: user._id,
-            username: user.username,
-            email: user.email
-        },process.env.JWT_SECRET,
-    )
+        const token = jwt.sign(
+            { 
+                _id: user._id,
+                userId: user._id,
+                username: user.username
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
     res.cookie('token',token)
     res.send('Login successful')
             
