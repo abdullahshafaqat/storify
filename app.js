@@ -5,7 +5,7 @@ const userRoutes = require('./routes/user.routes');
 const indexRoutes = require('./routes/index.routes');
 const connectToDB = require('./config/db');
 const fileRoutes = require('./routes/file.routes');
-// Load environment variables first
+
 dotenv.config();
 
 const app = express();

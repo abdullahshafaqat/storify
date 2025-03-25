@@ -4,16 +4,14 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Create uploads directory if it doesn't exist
+
 const uploadDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Configure multer for file storage
 const storage = multer.diskStorage({
     destination: function(req, file, cb) {
-        // Create user directory based on userId
         const userId = req.user?._id || 'anonymous';
         const userDir = path.join(uploadDir, userId.toString());
         
@@ -24,13 +22,12 @@ const storage = multer.diskStorage({
         cb(null, userDir);
     },
     filename: function(req, file, cb) {
-        // Generate unique filename: timestamp + original name
         const uniqueName = Date.now() + '-' + file.originalname;
         cb(null, uniqueName);
     }
 });
 
-// Set file size limits and file types
+
 const upload = multer({
     storage: storage,
     limits: {
@@ -38,7 +35,7 @@ const upload = multer({
     }
 });
 
-// Route to upload a file
+
 router.post('/upload-file', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
@@ -48,7 +45,6 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
             });
         }
         
-        // Create a file record
         const fileData = {
             filename: req.file.filename,
             originalName: req.file.originalname,
@@ -73,7 +69,7 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
     }
 });
 
-// Route to get all files for user
+
 router.get('/files', async (req, res) => {
     try {
         const userId = req.user?._id || 'anonymous';
@@ -85,10 +81,8 @@ router.get('/files', async (req, res) => {
             });
         }
         
-        // Read the user's directory
         const files = fs.readdirSync(userDir);
         
-        // Map files to objects with metadata
         const fileList = files.map(filename => {
             const filePath = path.join(userDir, filename);
             const stats = fs.statSync(filePath);
@@ -115,7 +109,7 @@ router.get('/files', async (req, res) => {
     }
 });
 
-// Route to download a file
+
 router.get('/files/:filename', (req, res) => {
     try {
         const userId = req.user?._id || 'anonymous';
@@ -129,7 +123,6 @@ router.get('/files/:filename', (req, res) => {
             });
         }
         
-        // Send the file
         res.download(filePath);
     } catch (error) {
         console.error('Error downloading file:', error);
@@ -141,7 +134,7 @@ router.get('/files/:filename', (req, res) => {
     }
 });
 
-// Route to delete a file
+
 router.delete('/files/:filename', (req, res) => {
     try {
         const userId = req.user?._id || 'anonymous';
@@ -155,7 +148,6 @@ router.delete('/files/:filename', (req, res) => {
             });
         }
         
-        // Delete the file
         fs.unlinkSync(filePath);
         
         res.json({
